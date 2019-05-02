@@ -1,4 +1,5 @@
 const Session = require('../models/session');
+const Film = require('../models/film');
 const moment = require('moment');
 const { 
     getFilmDuration, 
@@ -9,7 +10,43 @@ const {
 
 module.exports = (app) => {
     app.get('/sessions', (req, res) => {
-        Session.find({}).then(sessions => res.send(sessions))
+        var start = null;
+        var end = null;
+        var condition = {};
+
+        if (req.query.start) {
+            start = req.query.start + 'T10:00';
+        }
+        if (req.query.end) {
+            end = req.query.end + 'T22:00';
+        }
+
+        if (start && end) { // début et fin sont donnés
+            condition = {
+                $and: [
+                   { datetime: { $gte: start } },
+                   { datetime: { $lte: end } }
+                ]
+            }
+        } else if (start && !end) { // seul le début est donné
+            condition = { datetime: { $gte: start } }
+        } else if (!start && end) { // seule la fin est donnée
+            condition = { datetime: { $lte: end } }
+        }
+
+
+        Session.find(condition)
+            //.populate({ path: 'film', model: Film })
+            .then(sessions => {
+                if (sessions.length == 0) {
+                    res.send('SESSION_SEARCH_ZERO_RESULT')
+                } else {
+                    res.send(sessions);
+                }
+            })
+            .catch(err => {
+                res.send('SESSION_SEARCH_PROBLEM')
+            })
     })
 
     app.post('/sessions', async (req, res) => {
